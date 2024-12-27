@@ -40,6 +40,29 @@ app.use((req, res, next) => {
 // Set up Multer for file uploads
 const upload = multer({ dest: "uploads/" });
 
+// Support for domains
+app.use((req, res, next) => {
+    const allowedOrigins = [
+        "https://checkbox-remind-968160.framer.app",
+        "https://airboxr.com",
+    ];
+
+    const origin = req.headers.origin;
+    if (allowedOrigins.includes(origin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+    }
+
+    res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+    if (req.method === "OPTIONS") {
+        res.status(204).end(); // Respond to preflight requests
+        return;
+    }
+
+    next();
+});
+
 // Proxy endpoint for Replicate
 app.post("/proxy/replicate", async (req, res) => {
     try {
