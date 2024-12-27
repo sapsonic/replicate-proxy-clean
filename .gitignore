@@ -1,3 +1,10 @@
 .env
+
+# Ignore the backup folder
 replicate-proxy-backup/
 
+# Ignore all node_modules
+node_modules/
+
+# Ignore log files
+*.log
