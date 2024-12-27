@@ -1,18 +1,8 @@
 const express = require("express");
 const multer = require("multer");
-const path = require("path");
 const fs = require("fs");
 const cloudinary = require("cloudinary").v2;
 require("dotenv").config(); // Load environment variables
-
-const PORT = 3000;
-
-// Log loaded environment variables (for debugging; remove this in production)
-console.log("Loaded API Key for Replicate:", process.env.REPLICATE_API_TOKEN);
-console.log("Loaded Cloudinary Config:", {
-    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-    api_key: process.env.CLOUDINARY_API_KEY,
-});
 
 // Configure Cloudinary using environment variables
 cloudinary.config({
@@ -26,21 +16,7 @@ const app = express();
 // Middleware to parse JSON requests
 app.use(express.json({ limit: "10mb" })); // Increase payload limit to 10MB
 
-// Middleware to handle CORS
-app.use((req, res, next) => {
-    res.header("Access-Control-Allow-Origin", "https://checkbox-remind-968160.framer.app");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
-    res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    if (req.method === "OPTIONS") {
-        return res.sendStatus(204);
-    }
-    next();
-});
-
-// Set up Multer for file uploads
-const upload = multer({ dest: "uploads/" });
-
-// Support for domains
+// Middleware to handle CORS dynamically
 app.use((req, res, next) => {
     const allowedOrigins = [
         "https://checkbox-remind-968160.framer.app",
@@ -52,12 +28,11 @@ app.use((req, res, next) => {
         res.setHeader("Access-Control-Allow-Origin", origin);
     }
 
-    res.setHeader("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
     if (req.method === "OPTIONS") {
-        res.status(204).end(); // Respond to preflight requests
-        return;
+        return res.status(204).end(); // Respond to preflight requests
     }
 
     next();
@@ -69,9 +44,9 @@ app.post("/proxy/replicate", async (req, res) => {
         const response = await fetch("https://api.replicate.com/v1/predictions", {
             method: "POST",
             headers: {
-                Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`, // Use token from .env
+                Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`,
                 "Content-Type": "application/json",
-                "Prefer": "wait",
+                Prefer: "wait",
             },
             body: JSON.stringify(req.body),
         });
@@ -85,20 +60,19 @@ app.post("/proxy/replicate", async (req, res) => {
 });
 
 // File upload endpoint
+const upload = multer({ dest: "uploads/" });
 app.post("/upload", upload.single("file"), async (req, res) => {
     if (!req.file) {
         return res.status(400).send("No file uploaded.");
     }
 
     try {
-        // Upload to Cloudinary
         const result = await cloudinary.uploader.upload(req.file.path, {
             folder: "uploads",
-            invalidate: true, // Ensure cached versions are invalidated
+            invalidate: true,
         });
 
-        // Remove the local file after upload
-        fs.unlinkSync(req.file.path);
+        fs.unlinkSync(req.file.path); // Remove local file after upload
 
         console.log("File uploaded successfully to Cloudinary:", result.secure_url);
 
@@ -110,9 +84,8 @@ app.post("/upload", upload.single("file"), async (req, res) => {
             } catch (error) {
                 console.error("Error deleting file from Cloudinary:", error);
             }
-        }, 60000); // 1 minute in milliseconds
+        }, 60000); // 1 minute
 
-        // Respond with the public URL
         res.json({ fileUrl: result.secure_url });
     } catch (error) {
         console.error("Cloudinary upload error:", error);
@@ -120,7 +93,5 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     }
 });
 
-// Start the server
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
+// Export the app for Vercel
+module.exports = app;
