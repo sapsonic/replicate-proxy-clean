@@ -1,5 +1,17 @@
 {
   "version": 2,
+   "builds": [
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/cors-anywhere/.*",
+      "dest": "server.js"
+    }
+  ]
   "rewrites": [
     {
       "source": "/proxy/replicate",
@@ -8,8 +20,13 @@
     {
       "source": "/cors-anywhere/:path*",
       "destination": "/server.js" 
+    },
+    {
+      "source": "/upload",
+      "destination": "/server.js"
     }
   ],
+
   "headers": [
     {
       "source": "/proxy/replicate",
