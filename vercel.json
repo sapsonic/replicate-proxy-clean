@@ -12,6 +12,8 @@
       "destination": "/server.js"
     }
   ],
+	
+
   "headers": [
     {
       "source": "/cors-anywhere/(.*)",
