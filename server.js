@@ -1,6 +1,5 @@
 import express from "express";
 import multer from "multer";
-import fs from "fs";
 import cors_proxy from "cors-anywhere";
 import { v2 as cloudinary } from "cloudinary";
 import dotenv from "dotenv";
@@ -17,7 +16,7 @@ cloudinary.config({
 const app = express();
 
 // Middleware to parse JSON requests
-app.use(express.json({ limit: "10mb" })); // Increase payload limit to 10MB
+app.use(express.json({ limit: "10mb" }));
 
 // Middleware to handle CORS dynamically
 app.use((req, res, next) => {
@@ -52,7 +51,6 @@ app.options("*", (req, res) => {
 // Log all incoming requests
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    console.log("Headers:", req.headers);
     if (req.method !== "GET") {
         console.log("Body:", req.body);
     }
@@ -82,34 +80,28 @@ app.post("/proxy/replicate", async (req, res) => {
     }
 });
 
-// File upload endpoint
-const upload = multer({ dest: "uploads/" });
+// File upload endpoint with memoryStorage
+const upload = multer({ storage: multer.memoryStorage() });
 app.post("/upload", upload.single("file"), async (req, res) => {
     if (!req.file) {
         return res.status(400).send("No file uploaded.");
     }
 
     try {
-        const result = await cloudinary.uploader.upload(req.file.path, {
-            folder: "uploads",
-            invalidate: true,
-        });
+        const result = await cloudinary.uploader.upload_stream(
+            { folder: "uploads", invalidate: true },
+            (error, result) => {
+                if (error) {
+                    throw error;
+                }
 
-        fs.unlinkSync(req.file.path); // Remove local file after upload
-
-        console.log("File uploaded successfully to Cloudinary:", result.secure_url);
-
-        // Schedule deletion after 1 minute
-        setTimeout(async () => {
-            try {
-                await cloudinary.uploader.destroy(result.public_id);
-                console.log("File deleted from Cloudinary:", result.public_id);
-            } catch (error) {
-                console.error("Error deleting file from Cloudinary:", error);
+                console.log("File uploaded successfully to Cloudinary:", result.secure_url);
+                res.json({ fileUrl: result.secure_url });
             }
-        }, 60000); // 1 minute
+        );
 
-        res.json({ fileUrl: result.secure_url });
+        const stream = req.file.buffer; // Use the in-memory file buffer
+        result.end(stream);
     } catch (error) {
         console.error("Cloudinary upload error:", error);
         res.status(500).send("Failed to upload file.");
@@ -122,46 +114,34 @@ app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
 
+
+// CORS Anywhere setup
 // CORS Anywhere setup
 app.use("/cors-anywhere/*", (req, res) => {
-    // Capture the full path after "/cors-anywhere/"
-    const fullPath = req.params[0] || ""; // Use params[0] to get everything after '/cors-anywhere/'
+    const fullPath = req.params[0] || ""; // Capture everything after '/cors-anywhere/'
 
-    // Ensure the target URL is well-formed
     let targetUrl;
     try {
-        // Check if the fullPath starts with 'http://' or 'https://'
         if (fullPath.startsWith("http://") || fullPath.startsWith("https://")) {
-            targetUrl = fullPath; // Use as is
+            targetUrl = fullPath;
         } else {
-            // Prepend 'https://' if it doesn't start with a protocol
             targetUrl = `https://${fullPath}`;
         }
 
         // Validate URL structure
-        new URL(targetUrl); 
+        new URL(targetUrl);
     } catch (error) {
         console.error("[CORS Proxy] Invalid Target URL:", targetUrl);
         return res.status(400).send("Invalid target URL");
     }
 
-    // Log the paths for debugging
+    // Log paths for debugging
     console.log(`[CORS Proxy] Full Path: ${fullPath}`);
     console.log(`[CORS Proxy] Target URL: ${targetUrl}`);
 
-    // Return the normalized HTTPS URL
-    return res.send(targetUrl);
-
-    // Uncomment below lines if you wish to forward the request using cors-anywhere
-    /*
-    cors_proxy.createServer({
-        originWhitelist: [], // Allow all origins
-        requireHeader: ["origin", "x-requested-with"],
-        removeHeaders: ["cookie", "cookie2"],
-    }).emit("request", req, res, { target: targetUrl });
-    */
+    // Forward the request to the target URL
+    cors_proxy.emit("request", req, res, { target: targetUrl });
 });
-
 
 
 
