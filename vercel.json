@@ -11,22 +11,7 @@
       "src": "/cors-anywhere/.*",
       "dest": "server.js"
     }
-  ]
-  "rewrites": [
-    {
-      "source": "/proxy/replicate",
-      "destination": "/api/proxy"
-    },
-    {
-      "source": "/cors-anywhere/:path*",
-      "destination": "/server.js" 
-    },
-    {
-      "source": "/upload",
-      "destination": "/server.js"
-    }
   ],
-
   "headers": [
     {
       "source": "/proxy/replicate",
