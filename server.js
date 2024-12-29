@@ -100,7 +100,6 @@ app.post("/upload", upload.single("file"), async (req, res) => {
 
 // CORS Anywhere Proxy
 const proxy = cors_proxy.createServer({
-const cors = require("cors")({origin:true})
     originWhitelist: [], // Allow all origins
     requireHeader: ["origin", "x-requested-with"],
     removeHeaders: ["cookie", "cookie2"],
