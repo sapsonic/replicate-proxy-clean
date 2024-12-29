@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 
 dotenv.config(); // Load environment variables
 
-// Configure Cloudinary using environment variables
+// Configure Cloudinary
 cloudinary.config({
     cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
     api_key: process.env.CLOUDINARY_API_KEY,
@@ -15,10 +15,9 @@ cloudinary.config({
 
 const app = express();
 
-// Middleware to parse JSON requests
+// Middleware
 app.use(express.json({ limit: "10mb" }));
 
-// Middleware to handle CORS dynamically
 app.use((req, res, next) => {
     const allowedOrigins = [
         "https://checkbox-remind-968160.framer.app",
@@ -33,14 +32,12 @@ app.use((req, res, next) => {
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
     if (req.method === "OPTIONS") {
-        console.log("OPTIONS request received, responding with 204.");
         return res.status(204).end();
     }
 
     next();
 });
 
-// Handle preflight requests explicitly
 app.options("*", (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -48,19 +45,14 @@ app.options("*", (req, res) => {
     res.status(204).end();
 });
 
-// Log all incoming requests
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    if (req.method !== "GET") {
-        console.log("Body:", req.body);
-    }
     next();
 });
 
-// Proxy endpoint for Replicate
+// Proxy Endpoint for Replicate
 app.post("/proxy/replicate", async (req, res) => {
     try {
-        console.log("Forwarding request to Replicate API...");
         const response = await fetch("https://api.replicate.com/v1/predictions", {
             method: "POST",
             headers: {
@@ -71,16 +63,15 @@ app.post("/proxy/replicate", async (req, res) => {
             body: JSON.stringify(req.body),
         });
 
-        console.log(`Replicate API Response Status: ${response.status}`);
         const data = await response.json();
         res.status(response.status).json(data);
     } catch (error) {
-        console.error("Proxy server error:", error);
+        console.error("Error in proxy/replicate:", error.message);
         res.status(500).json({ error: error.message });
     }
 });
 
-// File upload endpoint with memoryStorage
+// File Upload Endpoint
 const upload = multer({ storage: multer.memoryStorage() });
 app.post("/upload", upload.single("file"), async (req, res) => {
     if (!req.file) {
@@ -88,39 +79,37 @@ app.post("/upload", upload.single("file"), async (req, res) => {
     }
 
     try {
-        const result = await cloudinary.uploader.upload_stream(
-            { folder: "uploads", invalidate: true },
-            (error, result) => {
-                if (error) {
-                    throw error;
+        const result = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.uploader.upload_stream(
+                { folder: "uploads", invalidate: true },
+                (error, result) => {
+                    if (error) reject(error);
+                    else resolve(result);
                 }
+            );
+            uploadStream.end(req.file.buffer);
+        });
 
-                console.log("File uploaded successfully to Cloudinary:", result.secure_url);
-                res.json({ fileUrl: result.secure_url });
-            }
-        );
-
-        const stream = req.file.buffer; // Use the in-memory file buffer
-        result.end(stream);
+        console.log("File uploaded:", result.secure_url);
+        res.json({ fileUrl: result.secure_url });
     } catch (error) {
-        console.error("Cloudinary upload error:", error);
-        res.status(500).send("Failed to upload file.");
+        console.error("Upload error:", error.message);
+        res.status(500).send("Upload failed.");
     }
 });
 
-// Start server locally
-const PORT = 8080;
-app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+// CORS Anywhere Proxy
+const proxy = cors_proxy.createServer({
+const cors = require("cors")({origin:true})
+    originWhitelist: [], // Allow all origins
+    requireHeader: ["origin", "x-requested-with"],
+    removeHeaders: ["cookie", "cookie2"],
 });
 
-
-// CORS Anywhere setup
-// CORS Anywhere setup
 app.use("/cors-anywhere/*", (req, res) => {
-    const fullPath = req.params[0] || ""; // Capture everything after '/cors-anywhere/'
-
+    const fullPath = req.params[0] || "";
     let targetUrl;
+
     try {
         if (fullPath.startsWith("http://") || fullPath.startsWith("https://")) {
             targetUrl = fullPath;
@@ -128,22 +117,27 @@ app.use("/cors-anywhere/*", (req, res) => {
             targetUrl = `https://${fullPath}`;
         }
 
-        // Validate URL structure
         new URL(targetUrl);
     } catch (error) {
-        console.error("[CORS Proxy] Invalid Target URL:", targetUrl);
+        console.error("[CORS Proxy] Invalid URL:", targetUrl);
         return res.status(400).send("Invalid target URL");
     }
 
-    // Log paths for debugging
     console.log(`[CORS Proxy] Full Path: ${fullPath}`);
     console.log(`[CORS Proxy] Target URL: ${targetUrl}`);
-
-    // Forward the request to the target URL
-    cors_proxy.emit("request", req, res, { target: targetUrl });
+	console.log('CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME);
+	console.log('CLOUDINARY_API_KEY:', process.env.CLOUDINARY_API_KEY);
+	console.log('CLOUDINARY_API_SECRET:', process.env.CLOUDINARY_API_SECRET);
+    
+    req.url = `/${targetUrl}`; // Update request URL to include the target
+    proxy.emit("request", req, res);
 });
 
 
 
-// Export the app for Vercel
+const PORT = 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+});
+
 export default app;
