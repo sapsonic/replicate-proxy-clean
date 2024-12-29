@@ -115,7 +115,7 @@ app.use("/cors-anywhere/*", (req, res) => {
         if (fullPath.startsWith("http://") || fullPath.startsWith("https://")) {
             targetUrl = fullPath; // Use as is
         } else {
-            targetUrl = `https://${fullPath.replace(/^\/\//, '')}`; // Add protocol
+            targetUrl = `https://${fullPath.replace(/^\/+/, '')}`; // Prepend protocol and remove leading slashes
         }
 
         // Validate the URL
@@ -128,9 +128,7 @@ app.use("/cors-anywhere/*", (req, res) => {
     console.log(`[CORS Proxy] Full Path: ${fullPath}`);
     console.log(`[CORS Proxy] Target URL: ${targetUrl}`);
 
-    // Uncomment and configure your forwarding logic here
     res.send(`Target URL is: ${targetUrl}`);
-	
 	req.url = `/${targetUrl}`; // Update request URL to include the target
     proxy.emit("request", req, res);
 
