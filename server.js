@@ -105,39 +105,28 @@ const proxy = cors_proxy.createServer({
     removeHeaders: ["cookie", "cookie2"],
 });
 
-
+// Proxy handler
 app.use("/cors-anywhere/*", (req, res) => {
-    // Extract everything after /cors-anywhere/
     const fullPath = req.params[0];
-
     let targetUrl;
-    try {
-        if (fullPath.startsWith("http://") || fullPath.startsWith("https://")) {
-            targetUrl = fullPath; // Use as is
-        } else {
-            targetUrl = `https://${fullPath.replace(/^\/+/, '')}`; // Prepend protocol and remove leading slashes
-        }
 
-        // Validate the URL
-        new URL(targetUrl);
+    try {
+        // Ensure a well-formed URL
+        targetUrl = new URL(fullPath.startsWith("http") ? fullPath : `https://${fullPath}`);
     } catch (error) {
-        console.error("[CORS Proxy] Invalid Target URL:", targetUrl);
-        return res.status(400).send("Invalid target URL");
+        return res.status(400).send("Malformed target URL");
     }
 
     console.log(`[CORS Proxy] Full Path: ${fullPath}`);
     console.log(`[CORS Proxy] Target URL: ${targetUrl}`);
 
-    res.send(`Target URL is: ${targetUrl}`);
-	req.url = `/${targetUrl}`; // Update request URL to include the target
-    proxy.emit("request", req, res);
+    res.send(`Proxying to ${targetUrl}`);
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
 
 });
 
-
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-});
 
 export default app;
