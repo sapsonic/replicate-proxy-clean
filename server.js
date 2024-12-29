@@ -105,33 +105,36 @@ const proxy = cors_proxy.createServer({
     removeHeaders: ["cookie", "cookie2"],
 });
 
-app.use("/cors-anywhere/*", (req, res) => {
-    const fullPath = req.params[0] || "";
-    let targetUrl;
 
+app.use("/cors-anywhere/*", (req, res) => {
+    // Extract everything after /cors-anywhere/
+    const fullPath = req.params[0];
+
+    let targetUrl;
     try {
         if (fullPath.startsWith("http://") || fullPath.startsWith("https://")) {
-            targetUrl = fullPath;
+            targetUrl = fullPath; // Use as is
         } else {
-            targetUrl = `https://${fullPath}`;
+            targetUrl = `https://${fullPath.replace(/^\/\//, '')}`; // Add protocol
         }
 
+        // Validate the URL
         new URL(targetUrl);
     } catch (error) {
-        console.error("[CORS Proxy] Invalid URL:", targetUrl);
+        console.error("[CORS Proxy] Invalid Target URL:", targetUrl);
         return res.status(400).send("Invalid target URL");
     }
 
     console.log(`[CORS Proxy] Full Path: ${fullPath}`);
     console.log(`[CORS Proxy] Target URL: ${targetUrl}`);
-	console.log('CLOUDINARY_CLOUD_NAME:', process.env.CLOUDINARY_CLOUD_NAME);
-	console.log('CLOUDINARY_API_KEY:', process.env.CLOUDINARY_API_KEY);
-	console.log('CLOUDINARY_API_SECRET:', process.env.CLOUDINARY_API_SECRET);
-    
-    req.url = `/${targetUrl}`; // Update request URL to include the target
-    proxy.emit("request", req, res);
-});
 
+    // Uncomment and configure your forwarding logic here
+    res.send(`Target URL is: ${targetUrl}`);
+	
+	req.url = `/${targetUrl}`; // Update request URL to include the target
+    proxy.emit("request", req, res);
+
+});
 
 
 const PORT = 3000;
