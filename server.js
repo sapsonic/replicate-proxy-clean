@@ -107,21 +107,29 @@ const proxy = cors_proxy.createServer({
 
 // Proxy handler
 app.use("/cors-anywhere/*", (req, res) => {
-    const fullPath = req.params[0];
+    const fullPath = req.params[0] || ""; // Safely access params[0]
     let targetUrl;
 
     try {
-        // Ensure a well-formed URL
-        targetUrl = new URL(fullPath.startsWith("http") ? fullPath : `https://${fullPath}`);
+        // Normalize and validate the target URL
+        targetUrl = new URL(
+            fullPath.startsWith("http") ? fullPath : `https://${fullPath}`
+        );
     } catch (error) {
+        console.error("Malformed target URL:", fullPath);
         return res.status(400).send("Malformed target URL");
     }
 
-    console.log(`[CORS Proxy] Full Path: ${fullPath}`);
-    console.log(`[CORS Proxy] Target URL: ${targetUrl}`);
+    // Remove any duplicate protocols in the URL
+    const sanitizedUrl = targetUrl.href.replace(/https?:\/+/g, "https://");
 
-    res.send(`Proxying to ${targetUrl}`);
+    console.log(`[CORS Proxy] Full Path: ${fullPath}`);
+    console.log(`[CORS Proxy] Target URL: ${sanitizedUrl}`);
+
+    // Proxy logic (adjust based on your requirements)
+    res.send(`Proxying to ${sanitizedUrl}`);
 });
+
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
