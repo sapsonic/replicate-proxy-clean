@@ -38,11 +38,12 @@ app.use((req, res, next) => {
     next();
 });
 
-app.options("*", (req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", "*");
+app.options("/cors-anywhere/*", (req, res) => {
+    res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.status(204).end();
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+    return res.status(204).end(); // Send a "No Content" response
 });
 
 app.use((req, res, next) => {
@@ -103,6 +104,7 @@ const proxy = cors_proxy.createServer({
     originWhitelist: [], // Allow all origins
     requireHeader: ["origin", "x-requested-with"],
     removeHeaders: ["cookie", "cookie2"],
+    redirectSameOrigin: false, // Ensure redirects are not attempted
 });
 
 // Proxy handler
@@ -123,6 +125,10 @@ app.use("/cors-anywhere/*", (req, res) => {
     // Remove any duplicate protocols in the URL
     const sanitizedUrl = targetUrl.href.replace(/https?:\/+/g, "https://");
 
+    res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+
     console.log(`[CORS Proxy] Full Path: ${fullPath}`);
     console.log(`[CORS Proxy] Target URL: ${sanitizedUrl}`);
 
@@ -130,9 +136,7 @@ app.use("/cors-anywhere/*", (req, res) => {
     res.send(`Proxying to ${sanitizedUrl}`);
 });
 
-
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
-
 
 export default app;
