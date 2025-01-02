@@ -3,6 +3,7 @@ import multer from "multer";
 import cors_proxy from "cors-anywhere";
 import { v2 as cloudinary } from "cloudinary";
 import dotenv from "dotenv";
+import cors from "cors";
 
 dotenv.config(); // Load environment variables
 
@@ -14,6 +15,7 @@ cloudinary.config({
 });
 
 const app = express();
+app.use(cors);
 
 // Middleware
 app.use(express.json({ limit: "10mb" }));
