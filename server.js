@@ -31,6 +31,7 @@ const allowedOrigins = [
 app.use(
     cors({
         origin: (origin, callback) => {
+            console.log({origin})
             if (!origin || allowedOrigins.includes(origin)) {
                 callback(null, true);
             } else {
@@ -42,13 +43,13 @@ app.use(
     })
 );
 
-app.options("/cors-anywhere/*", (req, res) => {
-    res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    return res.status(204).end(); // Send a "No Content" response
-});
+// app.options("/cors-anywhere/*", (req, res) => {
+//     res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
+//     res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+//     res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+//     res.setHeader("Access-Control-Allow-Credentials", "true");
+//     return res.status(204).end(); // Send a "No Content" response
+// });
 
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
@@ -67,11 +68,28 @@ app.post("/proxy/replicate", async (req, res) => {
             },
             body: JSON.stringify(req.body),
         });
-
         const data = await response.json();
         res.status(response.status).json(data);
     } catch (error) {
         console.error("Error in proxy/replicate:", error.message);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Endpoint for checking status of Replicate prediction by url
+app.post("/proxy/replicate/status", async (req, res) => {
+    try {
+        const response = await fetch(`${req.body.url}`, {
+            method: "GET",
+            headers: {
+                Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`,
+                "Content-Type": "application/json",
+            },
+        });
+        const data = await response.json();
+        res.status(response.status).json(data);
+    } catch (error) {
+        console.error("Error in proxy/replicate/status:", error.message);
         res.status(500).json({ error: error.message });
     }
 });
