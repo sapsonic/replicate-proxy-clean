@@ -15,30 +15,32 @@ cloudinary.config({
 });
 
 const app = express();
-app.use(cors);
 
 // Middleware
 app.use(express.json({ limit: "10mb" }));
 
-app.use((req, res, next) => {
-    const allowedOrigins = [
-        "https://checkbox-remind-968160.framer.app",
-        "https://airboxr.com",
-        "http://localhost:8080",
-    ];
-    const origin = req.headers.origin;
-    if (allowedOrigins.includes(origin)) {
-        res.setHeader("Access-Control-Allow-Origin", origin);
-    }
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
+const allowedOrigins = [
+    "https://checkbox-remind-968160.framer.app",
+    "https://airboxr.com",
+    "https://www.airboxr.com",
+    "http://localhost:3000",
+    "https://modern-store-325890.framer.app",
+    "https://project-bf0bajzquvvkcxngr45s.framercanvas.com"
+];
 
-    if (req.method === "OPTIONS") {
-        return res.status(204).end();
-    }
-
-    next();
-});
+app.use(
+    cors({
+        origin: (origin, callback) => {
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+            } else {
+                callback(new Error("Not allowed by CORS"));
+            }
+        },
+        methods: ["GET", "POST", "OPTIONS"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+    })
+);
 
 app.options("/cors-anywhere/*", (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
