@@ -4,6 +4,7 @@ export default async function handler(req, res) {
         "https://airboxr.com",
         "https://www.airboxr.com",
         "http://localhost:3000",
+        "https://modern-store-325890.framer.app"
     ];
 
     const origin = req.headers.origin;
