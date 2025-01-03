@@ -28,7 +28,17 @@ const allowedOrigins = [
     "https://project-bf0bajzquvvkcxngr45s.framercanvas.com"
 ];
 
-app.use(cors());
+app.use(cors({
+    origin: (origin, callback) => {
+        if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true,
+}));
 
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
