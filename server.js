@@ -1,6 +1,5 @@
 import express from "express";
 import multer from "multer";
-import cors_proxy from "cors-anywhere";
 import { v2 as cloudinary } from "cloudinary";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -28,39 +27,38 @@ const allowedOrigins = [
     "https://project-bf0bajzquvvkcxngr45s.framercanvas.com"
 ];
 
-app.use(
-    cors({
-        origin: (origin, callback) => {
-            console.log({origin})
-            if (!origin || allowedOrigins.includes(origin)) {
-                callback(null, true);
-            } else {
-                callback(new Error("Not allowed by CORS"));
-            }
-        },
-        methods: ["GET", "POST", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
-        credentials: true, 
-    })
-);
-
-app.options("*", (req, res) => {
-    console.log({req})
-    res.setHeader("Access-Control-Allow-Origin",  "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-    return res.status(204).end(); // Send a "No Content" response
-});
+app.use(cors());
 
 app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
     next();
 });
 
+app.get("/ping", (req,res)=>{
+    return res.send('pong')
+})
+
 // Proxy Endpoint for Replicate
-app.post("/proxy/replicate", async (req, res) => {
+app.get("/proxy/replicate", async (req, res) => {
     try {
+        console.log('query',req.query)
+        const version = req.query.version;
+        const image = req.query.input.image
+        // Validate required parameters
+        if (!version || !image) {
+            return res.status(400).json({
+                error: "Missing required query parameters. 'version' and 'input[image]' are required.",
+            });
+        }
+
+        // Construct the payload
+        const payload = {
+            version,
+            input: {
+                image,
+            },
+        };
+
         const response = await fetch("https://api.replicate.com/v1/predictions", {
             method: "POST",
             headers: {
@@ -68,7 +66,7 @@ app.post("/proxy/replicate", async (req, res) => {
                 "Content-Type": "application/json",
                 Prefer: "wait",
             },
-            body: JSON.stringify(req.body),
+            body: JSON.stringify(payload),
         });
         const data = await response.json();
         res.status(response.status).json(data);
@@ -79,9 +77,15 @@ app.post("/proxy/replicate", async (req, res) => {
 });
 
 // Endpoint for checking status of Replicate prediction by url
-app.post("/proxy/replicate/status", async (req, res) => {
+app.get("/proxy/replicate/status", async (req, res) => {
     try {
-        const response = await fetch(`${req.body.url}`, {
+        const {url} = req.query;
+        if(!url){
+            return res.status(400).json({
+                error: "Missing 'url' query parameters.",
+            });
+        }
+        const response = await fetch(`${url}`, {
             method: "GET",
             headers: {
                 Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`,
@@ -96,7 +100,7 @@ app.post("/proxy/replicate/status", async (req, res) => {
     }
 });
 
-// File Upload Endpoint
+//File Upload Endpoint
 const upload = multer({ storage: multer.memoryStorage() });
 app.post("/upload", upload.single("file"), async (req, res) => {
     if (!req.file) {
@@ -121,43 +125,6 @@ app.post("/upload", upload.single("file"), async (req, res) => {
         console.error("Upload error:", error.message);
         res.status(500).send("Upload failed.");
     }
-});
-
-// CORS Anywhere Proxy
-const proxy = cors_proxy.createServer({
-    originWhitelist: [], // Allow all origins
-    requireHeader: ["origin", "x-requested-with"],
-    removeHeaders: ["cookie", "cookie2"],
-    redirectSameOrigin: false, // Ensure redirects are not attempted
-});
-
-// Proxy handler
-app.use("/cors-anywhere/*", (req, res) => {
-    const fullPath = req.params[0] || ""; // Safely access params[0]
-    let targetUrl;
-
-    try {
-        // Normalize and validate the target URL
-        targetUrl = new URL(
-            fullPath.startsWith("http") ? fullPath : `https://${fullPath}`
-        );
-    } catch (error) {
-        console.error("Malformed target URL:", fullPath);
-        return res.status(400).send("Malformed target URL");
-    }
-
-    // Remove any duplicate protocols in the URL
-    const sanitizedUrl = targetUrl.href.replace(/https?:\/+/g, "https://");
-
-    res.setHeader("Access-Control-Allow-Origin", req.headers.origin || "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization");
-
-    console.log(`[CORS Proxy] Full Path: ${fullPath}`);
-    console.log(`[CORS Proxy] Target URL: ${sanitizedUrl}`);
-
-    // Proxy logic (adjust based on your requirements)
-    res.send(`Proxying to ${sanitizedUrl}`);
 });
 
 const PORT = process.env.PORT || 3000;
