@@ -1,5 +1,6 @@
 import express from "express";
 import multer from "multer";
+import cors_proxy from "cors-anywhere";
 import { v2 as cloudinary } from "cloudinary";
 import dotenv from "dotenv";
 import cors from "cors";
@@ -24,7 +25,7 @@ const allowedOrigins = [
     "https://www.airboxr.com",
     "http://localhost:3000",
     "https://modern-store-325890.framer.app",
-    "https://project-bf0bajzquvvkcxngr45s.framercanvas.com"
+    "https://project-bf0bajzquvvkcxngr45s.framercanvas.com",
 ];
 
 app.use(cors());
@@ -34,29 +35,25 @@ app.use((req, res, next) => {
     next();
 });
 
-app.get("/ping", (req,res)=>{
-    return res.send('pong')
-})
+app.get("/ping", (req, res) => {
+    return res.send("pong");
+});
 
 // Proxy Endpoint for Replicate
 app.get("/proxy/replicate", async (req, res) => {
     try {
-        console.log('query',req.query)
+        console.log("query", req.query);
         const version = req.query.version;
-        const image = req.query.input.image
-        // Validate required parameters
+        const image = req.query.input?.image;
         if (!version || !image) {
             return res.status(400).json({
                 error: "Missing required query parameters. 'version' and 'input[image]' are required.",
             });
         }
 
-        // Construct the payload
         const payload = {
             version,
-            input: {
-                image,
-            },
+            input: { image },
         };
 
         const response = await fetch("https://api.replicate.com/v1/predictions", {
@@ -76,58 +73,5 @@ app.get("/proxy/replicate", async (req, res) => {
     }
 });
 
-// Endpoint for checking status of Replicate prediction by url
-app.get("/proxy/replicate/status", async (req, res) => {
-    try {
-        const {url} = req.query;
-        if(!url){
-            return res.status(400).json({
-                error: "Missing 'url' query parameters.",
-            });
-        }
-        const response = await fetch(`${url}`, {
-            method: "GET",
-            headers: {
-                Authorization: `Bearer ${process.env.REPLICATE_API_TOKEN}`,
-                "Content-Type": "application/json",
-            },
-        });
-        const data = await response.json();
-        res.status(response.status).json(data);
-    } catch (error) {
-        console.error("Error in proxy/replicate/status:", error.message);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-//File Upload Endpoint
-const upload = multer({ storage: multer.memoryStorage() });
-app.post("/upload", upload.single("file"), async (req, res) => {
-    if (!req.file) {
-        return res.status(400).send("No file uploaded.");
-    }
-
-    try {
-        const result = await new Promise((resolve, reject) => {
-            const uploadStream = cloudinary.uploader.upload_stream(
-                { folder: "uploads", invalidate: true },
-                (error, result) => {
-                    if (error) reject(error);
-                    else resolve(result);
-                }
-            );
-            uploadStream.end(req.file.buffer);
-        });
-
-        console.log("File uploaded:", result.secure_url);
-        res.json({ fileUrl: result.secure_url });
-    } catch (error) {
-        console.error("Upload error:", error.message);
-        res.status(500).send("Upload failed.");
-    }
-});
-
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
-
+// Export the app
 export default app;
